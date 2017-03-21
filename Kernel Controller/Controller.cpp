@@ -267,6 +267,10 @@ void aimMeasure(float *velocity)
 	velocity[0] = secondAng[0] - firstAng[0];
 	velocity[1] = secondAng[1] - firstAng[1];
 
+	//Too Fast
+	velocity[0] /= 2;
+	velocity[1] /= 2;
+
 	if (velocity[1] > 180.f)
 		velocity[1] -= 360.f;
 	else if (velocity[1] < -180.f)
@@ -339,8 +343,6 @@ void aimbot() {
 
 		float aimVelocity[2];
 		aimMeasure(aimVelocity);
-		aimVelocity[0] /= 2;
-		aimVelocity[1] /= 2;
 
 		float randomPos[3], myPos[3], enPos[3], myView[3], myAng[3], enAng[2];
 		randomPos[0] = (float)rand() / RAND_MAX * (8.f) - 4.f;
@@ -447,6 +449,6 @@ void aimbot() {
 			Sleep(5);
 		}
 
-		Sleep(1);
+		//Sleep(1);
 	}
 }
