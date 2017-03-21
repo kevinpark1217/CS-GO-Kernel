@@ -4,8 +4,8 @@ Controller.cpp(70): warning C4838: conversion from 'int' to 'float' requires a n
 Controller.cpp(70): warning C4305: 'initializing': truncation from 'int' to 'float'
 Controller.cpp(70): warning C4838: conversion from 'unsigned int' to 'float' requires a narrowing conversion
 Controller.cpp(70): warning C4305: 'initializing': truncation from 'unsigned int' to 'float'
-Controller.cpp(214): warning C4800: 'int': forcing value to bool 'true' or 'false' (performance warning)
-Controller.cpp(257): warning C4554: '&': check operator precedence for possible error; use parentheses to clarify precedence
+Controller.cpp(216): warning C4800: 'int': forcing value to bool 'true' or 'false' (performance warning)
+Controller.cpp(259): warning C4554: '&': check operator precedence for possible error; use parentheses to clarify precedence
   Memory.cpp
 Memory.cpp(125): warning C4800: 'DWORD': forcing value to bool 'true' or 'false' (performance warning)
 Memory.cpp(135): warning C4800: 'DWORD': forcing value to bool 'true' or 'false' (performance warning)
