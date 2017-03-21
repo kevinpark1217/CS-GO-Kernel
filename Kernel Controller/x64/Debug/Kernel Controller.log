@@ -1,1 +1,9 @@
-﻿
+﻿  Controller.cpp
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(69): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(69): warning C4305: 'initializing': truncation from 'int' to 'float'
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(69): warning C4838: conversion from 'unsigned int' to 'float' requires a narrowing conversion
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(69): warning C4305: 'initializing': truncation from 'unsigned int' to 'float'
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(211): warning C4800: 'int': forcing value to bool 'true' or 'false' (performance warning)
+t:\personal\visual studio\cs-go-kernel\kernel controller\controller.cpp(254): warning C4554: '&': check operator precedence for possible error; use parentheses to clarify precedence
+  Kernel Controller.vcxproj -> T:\Personal\Visual Studio\CS-GO-Kernel\x64\Debug\Kernel Controller.exe
+  Kernel Controller.vcxproj -> T:\Personal\Visual Studio\CS-GO-Kernel\x64\Debug\Kernel Controller.pdb (Full PDB)

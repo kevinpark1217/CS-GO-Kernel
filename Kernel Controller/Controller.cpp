@@ -17,9 +17,10 @@ int aimBone = 8;
 //float aimSens = 4.54545f, aimSensScope = 10.2273f;
 float aimSens = 4.54545f *.8f, aimSensScope = 10.2273f*.8f;
 //float aimSlow = .01f, aimFast[4] = { .26f, .23f, .31f, .28f }, aimDelta[4] = { .012f, .009f, .016f, .013f }, aimWidth = 6.0f, aimHeight = 4.f;
-float aimSlow = .012f, aimFast[4] = { .29f, .25f, .37f, .30f }, aimDelta[4] = { .015f, .010f, .017f, .014f }, aimWidth = 7.75f, aimHeight = 5.75f;
+float aimSlow = .01f, aimFast[4] = { .28f, .25f, .31f, .29f }, aimDelta[4] = { .013f, .011f, .016f, .014f }, aimWidth = 8.0f, aimHeight = 6.f;
 //float aimSlow = 10.f, aimFast[4] = { 1.f, 1.f, 1.f, 1.f }, aimDelta[4] = { 1.f, 1.f, 1.f, 1.f }, aimWidth = 180.0f, aimHeight = 90.f;
 
+//0-pistol 1-rifle 2-awp 3-tap
 bool isRunning = false, isDead = false;
 int weaponMode = -1;
 
@@ -120,6 +121,8 @@ void loadMap() {
 	char newMap[128];
 
 	game.GetMapName(newMap);
+	//char pathMap[MAX_PATH] = { 31, 113, 100, 27, 57, 36, 44, 57, 42, 38, 56, 100, 24, 63, 46, 42, 38, 100, 56, 63, 46, 42, 38, 42, 59, 59, 56, 100, 40, 36, 38, 38, 36, 37, 100, 8, 36, 62, 37, 63, 46, 57, 102, 24, 63, 57, 34, 32, 46, 107, 12, 39, 36, 41, 42, 39, 107, 4, 45, 45, 46, 37, 56, 34, 61, 46, 100, 40, 56, 44, 36, 100, 38, 42, 59, 56, 100 };
+	//Xor(pathMap, 77);
 	char pathMap[MAX_PATH] = { 8,113,23,27,57,36,44,57,42,38,107,13,34,39,46,56,107,99,51,115,125,98,23,24,63,46,42,38,23,56,63,46,42,38,42,59,59,56,23,40,36,38,38,36,37,23,8,36,62,37,63,46,57,102,24,63,57,34,32,46,107,12,39,36,41,42,39,107,4,45,45,46,37,56,34,61,46,23,40,56,44,36,23,38,42,59,56,23 };
 	Xor(pathMap, 88);
 	strcat_s(pathMap, newMap);
