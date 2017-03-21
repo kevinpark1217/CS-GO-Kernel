@@ -1,1 +1,26 @@
-﻿
+﻿  Building 'Kernel Driver' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
+  Driver.c
+Driver.c(49): warning C4047: 'function': 'PSIZE_T' differs in levels of indirection from 'PSIZE_T *'
+Driver.c(49): warning C4024: 'MmCopyVirtualMemory': different types for formal and actual parameter 7
+Driver.c(58): warning C4047: 'function': 'PSIZE_T' differs in levels of indirection from 'PSIZE_T *'
+Driver.c(58): warning C4024: 'MmCopyVirtualMemory': different types for formal and actual parameter 7
+Driver.c(87): warning C4047: '=': 'ULONGLONG' differs in levels of indirection from 'PVOID'
+Driver.c(95): warning C4047: '=': 'ULONGLONG' differs in levels of indirection from 'PVOID'
+Driver.c(121): warning C4022: 'KeReadVirtualMemory': pointer mismatch for actual parameter 2
+Driver.c(103): warning C4100: 'DeviceObject': unreferenced formal parameter
+Driver.c(182): warning C4047: 'function': 'PLOAD_IMAGE_NOTIFY_ROUTINE' differs in levels of indirection from 'PLOAD_IMAGE_NOTIFY_ROUTINE (__cdecl *)(PUNICODE_STRING,HANDLE,PIMAGE_INFO)'
+Driver.c(182): warning C4024: 'PsSetLoadImageNotifyRoutine': different types for formal and actual parameter 1
+Driver.c(178): warning C4100: 'pRegistryPath': unreferenced formal parameter
+Driver.c(207): warning C4047: 'function': 'PLOAD_IMAGE_NOTIFY_ROUTINE' differs in levels of indirection from 'PLOAD_IMAGE_NOTIFY_ROUTINE (__cdecl *)(PUNICODE_STRING,HANDLE,PIMAGE_INFO)'
+Driver.c(207): warning C4024: 'PsRemoveLoadImageNotifyRoutine': different types for formal and actual parameter 1
+Driver.c(213): warning C4100: 'DeviceObject': unreferenced formal parameter
+Driver.c(222): warning C4100: 'DeviceObject': unreferenced formal parameter
+t:\personal\visual studio\cs-go-kernel\kernel driver\driver.c(100): warning C4716: 'ImageLoadCallback': must return a value
+t:\personal\visual studio\cs-go-kernel\kernel driver\driver.c(211): warning C4716: 'UnloadDriver': must return a value
+  Kernel Driver.vcxproj -> T:\Personal\Visual Studio\CS-GO-Kernel\x64\Release\KernelDriver.sys
+  Done Adding Additional Store
+  Successfully signed: T:\Personal\Visual Studio\CS-GO-Kernel\x64\Release\KernelDriver.sys
+  
+  Driver is a Universal Driver.
+  Inf2Cat task was skipped as there were no inf files to process
+  
