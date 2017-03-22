@@ -17,7 +17,7 @@ int aimBone = 8;
 //float aimSens = 4.54545f, aimSensScope = 10.2273f;
 float aimSens = 4.54545f *.8f, aimSensScope = 10.2273f*.8f;
 //float aimSlow = .01f, aimFast[4] = { .26f, .23f, .31f, .28f }, aimDelta[4] = { .012f, .009f, .016f, .013f }, aimWidth = 6.0f, aimHeight = 4.f;
-float aimSlow = .01f, aimFast[4] = { .28f, .25f, .31f, .29f }, aimDelta[4] = { .013f, .011f, .016f, .014f }, aimWidth = 8.0f, aimHeight = 6.f;
+float aimSlow = .009f, aimFast[4] = { .28f, .25f, .31f, .29f }, aimDelta[4] = { .013f, .0096f, .016f, .014f }, aimWidth = 8.0f, aimHeight = 6.f;
 //float aimSlow = 10.f, aimFast[4] = { 1.f, 1.f, 1.f, 1.f }, aimDelta[4] = { 1.f, 1.f, 1.f, 1.f }, aimWidth = 180.0f, aimHeight = 90.f;
 
 //0-pistol 1-rifle 2-awp 3-tap
@@ -223,6 +223,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	V0.join();
 	V1.join();
 	V2.join();
+
+	ZeroMemory(hwnd, sizeof(hwnd));
 
 	return 0;
 }
