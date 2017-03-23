@@ -49,7 +49,7 @@ NTSTATUS Mouse_Create(IN PDRIVER_OBJECT driverObject)
 	memset((void*)&mdata,0,sizeof(mdata));
 	memset((void*)MOU_DATA,0,sizeof(MOU_DATA));
 
-	RtlInitUnicodeString(&uniKbdDeviceName,L"\\Device\\IOMouse");
+	RtlInitUnicodeString(&uniKbdDeviceName,L"\\Device\\BarbellMouse");
 	status = IoCreateDevice(driverObject,0,&uniKbdDeviceName,FILE_DEVICE_UNKNOWN,FILE_DEVICE_SECURE_OPEN,FALSE,&g_IOMouseDeviceObject);
 	if(!NT_SUCCESS(status)) {
 		return status;
@@ -57,7 +57,7 @@ NTSTATUS Mouse_Create(IN PDRIVER_OBJECT driverObject)
 	g_IOMouseDeviceObject->Flags|=DO_BUFFERED_IO; 
 	g_IOMouseDeviceObject->Flags&=~DO_DEVICE_INITIALIZING;
 
-
+	
 	status = Mouse_Hook(driverObject);
 	if(!NT_SUCCESS(status)) {
 		g_IOMouseDeviceObject = NULL;
@@ -126,7 +126,7 @@ NTSTATUS Mouse_Hook(IN PDRIVER_OBJECT driverObject)
 	char arMouseCls[0x10];
 	WCHAR tmpNameBuffer[512];
 
-	DbgPrint("Running Mouse_Create.");
+	DbgPrintEx(0, 0, "Running Mouse_Create.\n");
 
 
 	RtlInitUnicodeString(&uniOa, L"\\Device");
@@ -153,7 +153,7 @@ NTSTATUS Mouse_Hook(IN PDRIVER_OBJECT driverObject)
 		pDirBasicInfo =	(PDIRECTORY_BASIC_INFORMATION)pBuffer;
 		pDirBasicInfo->ObjectName.Length -= 2;
 
-		RtlInitUnicodeString(&uniMouseDrv, L"PointerClass");
+		RtlInitUnicodeString(&uniMouseDrv, L"PointerClass0");
 
 		if(RtlCompareUnicodeString(	&pDirBasicInfo->ObjectName, &uniMouseDrv,FALSE) == 0){
 			mouId = (ULONG)(*(char *)(pDirBasicInfo->ObjectName.Buffer+pDirBasicInfo->ObjectName.Length));
@@ -209,6 +209,8 @@ NTSTATUS Mouse_UnHook(IN PDRIVER_OBJECT driverObject)
 	UNICODE_STRING uniMouseDrv;
 	char* mouseclsNum;
 	char arMouseCls[0x10];
+
+	DbgPrintEx(0, 0, "Running Mouse_Close.\n");
 
 	if(g_mouse_rootine) *g_mouse_rootine = (ULONGLONG)MouseInputRoutine;
 	if(g_OldReadFunction) {
@@ -327,6 +329,8 @@ void SynthesizeMouse(PMOUSE_INPUT_DATA a1)
 	KIRQL irql;
 	char *endptr;
 	ULONG fill=1;
+
+	DbgPrintEx(0, 0, a1->LastX + " " + a1->LastY);
 
 	endptr=(char*)a1;
 

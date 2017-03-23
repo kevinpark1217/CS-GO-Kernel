@@ -20,6 +20,11 @@ struct DEVOBJ_EXTENSION_FIX
 	PDEVICE_OBJECT AttachedTo;
 };
 
+typedef struct _ARKNTAPI {
+	ULONG dwNtOpenDirectoryObject;
+	ULONG dwNtQueryDirectoryObject;
+} ARKNTAPI, *PARKNTAPI;
+
 NTSYSAPI
 NTSTATUS
 NTAPI

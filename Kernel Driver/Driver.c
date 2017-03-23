@@ -2,6 +2,8 @@
 #include <ntifs.h>
 #include <ntddk.h>
 #include "Memory.h"
+#include "mousehook.h"
+#include "keyboardhook.h"
 
 // Request to read virtual user memory (memory of a program) from kernel space
 #define IO_READ_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5851 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
@@ -15,11 +17,15 @@
 // Request to retrieve the base address of engine.dll in csgo.exe from kernel space
 #define IO_GET_ENGINE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5855 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
+// Send mouse data to kernel space for stream injection
+#define IO_MOUSE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5856 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+
 PDEVICE_OBJECT pDeviceObject; // our driver object
 UNICODE_STRING dev, dos; // Driver registry paths
 
 HANDLE ProcessHandle;
 ULONGLONG ClientAddress, EngineAddress;
+MOUSE_INPUT_DATA mdata;
 
 // datatype for read request
 typedef struct _KERNEL_READ_REQUEST
@@ -29,6 +35,15 @@ typedef struct _KERNEL_READ_REQUEST
 	SIZE_T Size;
 
 } KERNEL_READ_REQUEST, *PKERNEL_READ_REQUEST;
+
+typedef struct _MOUSE_REQUEST
+{
+	BOOLEAN click;
+	BOOLEAN status;
+	LONG dx;
+	LONG dy;
+
+} MOUSE_REQUEST, *PMOUSE_REQUEST;
 
 /*typedef struct _KERNEL_WRITE_REQUEST
 {
@@ -159,6 +174,30 @@ NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		Status = STATUS_SUCCESS;
 		BytesIO = sizeof(EngineAddress);
 	}
+	else if (ControlCode == IO_MOUSE_REQUEST)
+	{
+		PMOUSE_REQUEST ReadInput = (PMOUSE_REQUEST)Irp->AssociatedIrp.SystemBuffer;
+		mdata.Flags |= MOUSE_MOVE_RELATIVE;
+		if (ReadInput->click && ReadInput->status == 1)
+		{
+			mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_UP;
+			mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_DOWN;
+		}
+		else if (ReadInput->click && ReadInput->status == 0)
+		{
+			mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_DOWN;
+			mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_UP;
+		}
+		else
+		{
+			mdata.LastX = ReadInput->dx;
+			mdata.LastY = ReadInput->dy;
+		}
+		SynthesizeMouse(&mdata);
+
+		Status = STATUS_SUCCESS;
+		BytesIO = sizeof(PMOUSE_REQUEST);
+	}
 	else
 	{
 		 // if the code is unknown
@@ -177,7 +216,7 @@ NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 // Driver Entrypoint
 NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath)
 {
-	//DbgPrintEx(0, 0, "Driver Loaded\n");
+	DbgPrintEx(0, 0, "Driver Loaded\n");
 
 	PsSetLoadImageNotifyRoutine(ImageLoadCallback);
 
@@ -195,6 +234,10 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 	pDeviceObject->Flags |= DO_DIRECT_IO;
 	pDeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 
+	memset((void*)&mdata, 0, sizeof(mdata));
+	Mouse_Create(pDriverObject);
+	//Keyboard_Create(input_keyboard);
+
 	return STATUS_SUCCESS;
 }
 
@@ -202,12 +245,17 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 
 NTSTATUS UnloadDriver(PDRIVER_OBJECT pDriverObject)
 {
-	//DbgPrintEx(0, 0, "Unload routine called.\n");
+	DbgPrintEx(0, 0, "Unload routine called.\n");
 
 	PsRemoveLoadImageNotifyRoutine(ImageLoadCallback);
+
 	IoDeleteSymbolicLink(&dos);
 	IoDeleteDevice(pDriverObject->DeviceObject);
-	//return STATUS_SUCCESS;
+
+	Mouse_Close(pDriverObject);
+	//Keyboard_Close(input_keyboard);
+
+	return STATUS_SUCCESS;
 }
 
 NTSTATUS CreateCall(PDEVICE_OBJECT DeviceObject, PIRP irp)

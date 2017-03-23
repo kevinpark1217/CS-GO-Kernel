@@ -34,25 +34,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
-void MouseMove(float x, float y)
-{
-	INPUT Input = { 0 };
-	Input.type = INPUT_MOUSE;
-	Input.mi.dx = (LONG)(x * 10);
-	Input.mi.dy = (LONG)(y * 10);
-	Input.mi.dwFlags = MOUSEEVENTF_MOVE;
-	SendInput(1, &Input, sizeof(INPUT));
-}
-
-void Shoot()
-{
-	SendMessage(hwnd, WM_SETCURSOR, (WPARAM)hwnd, 0x02010001);
-	PostMessage(hwnd, WM_LBUTTONDOWN, 0x1, 0x021C03C0);
-	Sleep(rand() % 10 + 175);
-	SendMessage(hwnd, WM_SETCURSOR, (WPARAM)hwnd, 0x02020002);
-	PostMessage(hwnd, WM_LBUTTONUP, 0x0, 0x021C03C0);
-}
-
 void Jump()
 {
 	PostMessage(hwnd, WM_SYSKEYDOWN, VK_MENU, 0x20380001);
@@ -430,13 +411,13 @@ void aimbot() {
 				sensX = difAng[1] * aimSens;
 				sensY = difAng[0] * aimSens;
 			}
-			MouseMove(-sensX, sensY);
+			game.MouseMove(-sensX, sensY);
 
 			if (aimCounter == 1)
 			{
 				//std::cout << aimCounter << std::endl;
 				if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == false)
-					Shoot();
+					game.Shoot();
 				if (weaponMode >= 2)
 					aimCounter--;
 			}

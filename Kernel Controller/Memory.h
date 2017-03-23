@@ -19,6 +19,19 @@
 // Request to retrieve the base address of engine.dll in csgo.exe from kernel space
 #define IO_GET_ENGINE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5855 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
+// Send mouse data to kernel space for stream injection
+#define IO_MOUSE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5856 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+
+typedef struct _MOUSE_REQUEST
+{
+	BOOLEAN click;
+	BOOLEAN status;
+	LONG dx;
+	LONG dy;
+
+} MOUSE_REQUEST, *PMOUSE_REQUEST;
+
+
 typedef struct _KERNEL_READ_REQUEST
 {
 	DWORDLONG Address;
@@ -134,6 +147,41 @@ public:
 			return (DWORD)Address;
 		else
 			return false;
+	}
+
+	void MouseMove(float x, float y)
+	{
+		INPUT Input = { 0 };
+		Input.type = INPUT_MOUSE;
+		Input.mi.dx = (LONG)(x * 10);
+		Input.mi.dy = (LONG)(y * 10);
+		Input.mi.dwFlags = MOUSEEVENTF_MOVE;
+		SendInput(1, &Input, sizeof(INPUT));
+		/*DWORD Bytes;
+		MOUSE_INPUT_DATA Input = { 0 };
+		Input.Flags = MOUSE_MOVE_ABSOLUTE;
+		Input.LastX = (LONG)(x * 10);
+		Input.LastY = (LONG)(y * 10);
+		DeviceIoControl(hDriver, IO_MOUSE_REQUEST, &Input, sizeof(Input), &Input, sizeof(Input), &Bytes, NULL);*/
+	}
+
+
+	void Shoot()
+	{
+		DWORD Bytes;
+		MOUSE_REQUEST Input;
+		Input.click = true;
+		Input.status = 1;
+		DeviceIoControl(hDriver, IO_MOUSE_REQUEST, &Input, sizeof(Input), 0, 0, &Bytes, NULL);
+		Sleep(rand() % 10 + 175);
+		Input.click = true;
+		Input.status = 0;
+		DeviceIoControl(hDriver, IO_MOUSE_REQUEST, &Input, sizeof(Input), 0, 0, &Bytes, NULL);
+		/*SendMessage(hwnd, WM_SETCURSOR, (WPARAM)hwnd, 0x02010001);
+		PostMessage(hwnd, WM_LBUTTONDOWN, 0x1, 0x021C03C0);
+		Sleep(rand() % 10 + 175);
+		SendMessage(hwnd, WM_SETCURSOR, (WPARAM)hwnd, 0x02020002);
+		PostMessage(hwnd, WM_LBUTTONUP, 0x0, 0x021C03C0);*/
 	}
 
 	const int MaxPlayer = 64;
