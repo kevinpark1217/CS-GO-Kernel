@@ -3,7 +3,7 @@
 #include "Memory.h"
 #include "BSP.h"
 
-Memory game("\\\\.\\barbell");
+Memory game("\\\\.\\Barbell");
 
 BSP bsp;
 //Input input;

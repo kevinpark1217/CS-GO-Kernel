@@ -181,8 +181,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 
 	PsSetLoadImageNotifyRoutine(ImageLoadCallback);
 
-	RtlInitUnicodeString(&dev, L"\\Device\\barbell");
-	RtlInitUnicodeString(&dos, L"\\DosDevices\\barbell");
+	RtlInitUnicodeString(&dev, L"\\Device\\Barbell");
+	RtlInitUnicodeString(&dos, L"\\DosDevices\\Barbell");
 
 	IoCreateDevice(pDriverObject, 0, &dev, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pDeviceObject);
 	IoCreateSymbolicLink(&dos, &dev);
