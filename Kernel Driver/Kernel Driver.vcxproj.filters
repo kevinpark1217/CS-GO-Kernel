@@ -2,13 +2,5 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Driver.c" />
-    <ClCompile Include="mousehook.c" />
-    <ClCompile Include="keyboardhook.c" />
-    <ClCompile Include="common.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="keyboardhook.h" />
-    <ClInclude Include="mousehook.h" />
-    <ClInclude Include="common.h" />
   </ItemGroup>
 </Project>

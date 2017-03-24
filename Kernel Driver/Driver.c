@@ -1,8 +1,8 @@
 #include <ntdef.h>
 #include <ntifs.h>
 #include <ntddk.h>
-#include "Memory.h"
-#include "mousehook.h"
+#include <Kbdmou.h>
+//#include "Memory.h"
 //#include "keyboardhook.h"
 
 // Request to read virtual user memory (memory of a program) from kernel space
@@ -20,12 +20,42 @@
 // Send mouse data to kernel space for stream injection
 #define IO_MOUSE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5856 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
+#define MOUCLASS_CONNECT_REQUEST 0x0F0203
+#define MOU_STRING_INC 0x14
+
+struct DEVOBJ_EXTENSION_FIX
+{
+	USHORT type;
+	USHORT size;
+	PDEVICE_OBJECT devObj;
+	ULONGLONG PowerFlags;
+	void *Dope;
+	ULONGLONG ExtensionFlags;
+	void *DeviceNode;
+	PDEVICE_OBJECT AttachedTo;
+};
+
+typedef NTSTATUS(__fastcall *MouclassRead)(PDEVICE_OBJECT device, PIRP irp);
+typedef void(__fastcall *MouseServiceDpc)(PDEVICE_OBJECT mou, PMOUSE_INPUT_DATA a1, PMOUSE_INPUT_DATA a2, PULONG a3);
+typedef NTSTATUS(__fastcall *MouseAddDevice)(PDRIVER_OBJECT a1, PDEVICE_OBJECT a2);
+typedef NTSTATUS(__fastcall *mouinput)(void *a1, void *a2, void *a3, void *a4, void *a5);
+
 PDEVICE_OBJECT pDeviceObject; // our driver object
+PDEVICE_OBJECT pMouseObject;
+PDEVICE_OBJECT pMouseTarget;
 UNICODE_STRING dev, dos; // Driver registry paths
+
+char MOU_DATA[5];
 
 HANDLE ProcessHandle;
 ULONGLONG ClientAddress, EngineAddress;
+ULONG mouId = 0;
+
+MouclassRead MouClassReadRoutine;
+MouseServiceDpc MouseDpcRoutine;
+mouinput MouseInputRoutine = NULL;
 MOUSE_INPUT_DATA mdata;
+PMOUSE_INPUT_DATA mouIrp = NULL;
 
 // datatype for read request
 typedef struct _KERNEL_READ_REQUEST
@@ -85,6 +115,90 @@ void Xor(wchar_t* text, int length) {
 	}
 }
 
+NTSTATUS MouseApc(void *a1, void *a2, void *a3, void *a4, void *a5)
+{
+	if (mouIrp->ButtonFlags&MOUSE_LEFT_BUTTON_DOWN)
+	{
+		MOU_DATA[0] = 1;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_LEFT_BUTTON_UP)
+	{
+		MOU_DATA[0] = 0;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_RIGHT_BUTTON_DOWN)
+	{
+		MOU_DATA[1] = 1;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_RIGHT_BUTTON_UP)
+	{
+		MOU_DATA[1] = 0;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_MIDDLE_BUTTON_DOWN)
+	{
+		MOU_DATA[2] = 1;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_MIDDLE_BUTTON_UP)
+	{
+		MOU_DATA[2] = 0;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_BUTTON_4_DOWN)
+	{
+		MOU_DATA[3] = 1;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_BUTTON_4_UP)
+	{
+		MOU_DATA[3] = 0;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_BUTTON_5_DOWN)
+	{
+		MOU_DATA[4] = 1;
+	}
+	else if (mouIrp->ButtonFlags&MOUSE_BUTTON_5_UP)
+	{
+		MOU_DATA[4] = 0;
+	}
+
+	return MouseInputRoutine(a1, a2, a3, a4, a5);
+}
+
+void *FindDevNodeRecurse(PDEVICE_OBJECT a1, ULONGLONG *a2)
+{
+	struct DEVOBJ_EXTENSION_FIX *attachment;
+	attachment = a1->DeviceObjectExtension;
+	if ((!attachment->AttachedTo) && (!attachment->DeviceNode)) return;
+
+	if ((!attachment->DeviceNode) && (attachment->AttachedTo))
+	{
+		FindDevNodeRecurse(attachment->AttachedTo, a2);
+
+		return;
+	}
+
+	*a2 = (ULONGLONG)attachment->DeviceNode;
+
+	return;
+}
+
+void SynthesizeMouse(PMOUSE_INPUT_DATA a1)
+{
+	KIRQL irql;
+	char *endptr;
+	ULONG fill = 1;
+
+	endptr = (char*)a1;
+
+	endptr += sizeof(MOUSE_INPUT_DATA);
+
+	a1->UnitId = mouId;
+
+	KeRaiseIrql(DISPATCH_LEVEL, &irql);
+
+	MouseDpcRoutine(pMouseTarget, a1, (PMOUSE_INPUT_DATA)endptr, &fill);
+
+	KeLowerIrql(irql);
+
+}
+
 // set a callback for every PE image loaded to user memory
 // then find the client.dll & csgo.exe using the callback
 PLOAD_IMAGE_NOTIFY_ROUTINE ImageLoadCallback(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_INFO ImageInfo)
@@ -112,6 +226,27 @@ PLOAD_IMAGE_NOTIFY_ROUTINE ImageLoadCallback(PUNICODE_STRING FullImageName, HAND
 	}
 	Xor(client, 20);
 	Xor(engine, 15);
+}
+
+NTSTATUS ReadMouse(PDEVICE_OBJECT device, PIRP irp)
+{
+	ULONGLONG *routine;
+
+	routine = (ULONGLONG*)irp;
+
+	routine += 0xb;
+
+
+	if (!MouseInputRoutine)
+	{
+		MouseInputRoutine = (mouinput)*routine;
+	}
+
+	*routine = (ULONGLONG)MouseApc;
+
+	mouIrp = (struct KEYBOARD_INPUT_DATA*)irp->UserBuffer;
+
+	return MouClassReadRoutine(device, irp);
 }
 
 // IOCTL Call Handler function
@@ -214,11 +349,46 @@ NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return Status;
 }
 
+NTSTATUS InternalIoCtrl(PDEVICE_OBJECT device, PIRP irp)
+{
+	PIO_STACK_LOCATION ios;
+	PCONNECT_DATA cd;
+
+	ios = IoGetCurrentIrpStackLocation(irp);
+
+	DbgPrintEx(0, 0, "InternalIoCtrl");
+	if (ios->Parameters.DeviceIoControl.IoControlCode == MOUCLASS_CONNECT_REQUEST)
+	{
+		cd = ios->Parameters.DeviceIoControl.Type3InputBuffer;
+		MouseDpcRoutine = (MouseServiceDpc)cd->ClassService;
+		DbgPrintEx(0, 0, "MouseServiceDpc [%x]", MouseDpcRoutine);
+	}
+	else
+	{
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 // Driver Entrypoint
 NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath)
 {
+	UNICODE_STRING classNameBuffer;
+	PDEVICE_OBJECT classObj;
+	PFILE_OBJECT file;
+	PDRIVER_OBJECT classDrv;
+	MouseAddDevice MouseAddDevicePtr;
+	struct DEVOBJ_EXTENSION_FIX *DevObjExtension;
+	ULONGLONG node = 0;
+	SHORT *u;
+	wchar_t kbdname[23] = L"\\Device\\KeyboardClass0";
+	wchar_t mouname[22] = L"\\Device\\PointerClass0";
+
 	DbgPrintEx(0, 0, "Driver Loaded\n");
 
+	memset((void*)&mdata, 0, sizeof(mdata));
+	memset((void*)MOU_DATA, 0, sizeof(MOU_DATA));
 
 	PsSetLoadImageNotifyRoutine(ImageLoadCallback);
 
@@ -228,17 +398,46 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 	IoCreateDevice(pDriverObject, 0, &dev, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pDeviceObject);
 	IoCreateSymbolicLink(&dos, &dev);
 
-	memset((void*)&mdata, 0, sizeof(mdata));
-	Mouse_Create(pDriverObject);
-	//Keyboard_Create(input_keyboard);
+	RtlInitUnicodeString(&dev, L"\\Device\\BarbellMouse");
+	IoCreateDevice(pDriverObject, 0, &dev, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pMouseObject);
 
 	pDriverObject->MajorFunction[IRP_MJ_CREATE] = CreateCall;
 	pDriverObject->MajorFunction[IRP_MJ_CLOSE] = CloseCall;
 	pDriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = IoControl;
+	pDriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = InternalIoCtrl;
 	pDriverObject->DriverUnload = UnloadDriver;
 
 	pDeviceObject->Flags |= DO_DIRECT_IO;
 	pDeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
+
+	pMouseObject->Flags |= DO_BUFFERED_IO;
+	pMouseObject->Flags &= DO_DEVICE_INITIALIZING;
+
+	RtlInitUnicodeString(&classNameBuffer, mouname);
+	u = mouname;
+
+	while (1)
+	{
+		//run till we run out of devices or find a devnode
+
+		if (IoGetDeviceObjectPointer(&classNameBuffer, FILE_ALL_ACCESS, &file, &classObj)) return STATUS_OBJECT_NAME_NOT_FOUND;
+		ObDereferenceObject(file);
+		node = FindDevNodeRecurse(classObj, &node);
+		if (node) break;
+		*(u + MOU_STRING_INC) += 1;
+		mouId++;
+		DbgPrintEx(0, 0, "Nope Mouse");
+	}
+
+	pMouseTarget = classObj;
+	classDrv = classObj->DriverObject;
+	MouClassReadRoutine = (MouclassRead)classDrv->MajorFunction[IRP_MJ_READ];
+	classDrv->MajorFunction[IRP_MJ_READ] = ReadMouse;
+	DevObjExtension = pMouseObject->DeviceObjectExtension;
+	DevObjExtension->DeviceNode = (void*)node;
+	MouseAddDevicePtr = (MouseAddDevice)classDrv->DriverExtension->AddDevice;
+	MouseAddDevicePtr(classDrv, pMouseObject); 
+	DbgPrintEx(0, 0, "Mouse Hooked");
 
 	return STATUS_SUCCESS;
 }
@@ -250,9 +449,6 @@ NTSTATUS UnloadDriver(PDRIVER_OBJECT pDriverObject)
 	DbgPrintEx(0, 0, "Unload routine called.\n");
 
 	PsRemoveLoadImageNotifyRoutine(ImageLoadCallback);
-
-	Mouse_Close(pDriverObject);
-	//Keyboard_Close(input_keyboard);
 
 	IoDeleteSymbolicLink(&dos);
 	IoDeleteDevice(pDriverObject->DeviceObject);
