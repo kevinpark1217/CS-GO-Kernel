@@ -87,6 +87,7 @@ NTSTATUS UnloadDriver(PDRIVER_OBJECT pDriverObject);
 NTSTATUS CreateCall(PDEVICE_OBJECT DeviceObject, PIRP irp);
 NTSTATUS CloseCall(PDEVICE_OBJECT DeviceObject, PIRP irp);
 NTSTATUS NTAPI MmCopyVirtualMemory(PEPROCESS SourceProcess, PVOID SourceAddress, PEPROCESS TargetProcess, PVOID TargetAddress, SIZE_T BufferSize, KPROCESSOR_MODE PreviousMode, PSIZE_T ReturnSize);
+NTKERNELAPI PDEVICE_OBJECT IoGetBaseFileSystemDeviceObject(_In_ PFILE_OBJECT FileObject);
 
 NTSTATUS KeReadVirtualMemory(PEPROCESS Process, PVOID SourceAddress, PVOID TargetAddress, SIZE_T Size)
 {
@@ -197,6 +198,31 @@ void SynthesizeMouse(PMOUSE_INPUT_DATA a1)
 
 	KeLowerIrql(irql);
 
+}
+
+NTSTATUS My_IoGetDeviceObjectPointer(IN PUNICODE_STRING ObjectName, IN ACCESS_MASK DesiredAccess, OUT PFILE_OBJECT *FileObject, OUT PDEVICE_OBJECT *DeviceObject)
+{
+	PFILE_OBJECT fileObject;
+	OBJECT_ATTRIBUTES objectAttributes;
+	HANDLE fileHandle;
+	IO_STATUS_BLOCK ioStatus;
+	NTSTATUS status;
+
+	InitializeObjectAttributes(&objectAttributes, ObjectName, OBJ_KERNEL_HANDLE, (HANDLE)NULL, (PSECURITY_DESCRIPTOR)NULL);
+
+	status = ZwOpenFile(&fileHandle, DesiredAccess, &objectAttributes, &ioStatus, FILE_SHARE_READ, FILE_NON_DIRECTORY_FILE);
+
+	if (NT_SUCCESS(status))
+	{
+		status = ObReferenceObjectByHandle(fileHandle, 0, *IoFileObjectType, KernelMode, (PVOID *)&fileObject, NULL);
+		if (NT_SUCCESS(status))
+		{
+			*FileObject = fileObject;
+			*DeviceObject = IoGetBaseFileSystemDeviceObject(fileObject);
+		}
+		ZwClose(fileHandle);
+	}
+	return status;
 }
 
 // set a callback for every PE image loaded to user memory
@@ -375,14 +401,12 @@ NTSTATUS InternalIoCtrl(PDEVICE_OBJECT device, PIRP irp)
 NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath)
 {
 	UNICODE_STRING classNameBuffer;
-	PDEVICE_OBJECT classObj;
 	PFILE_OBJECT file;
-	PDRIVER_OBJECT classDrv;
+	PDRIVER_OBJECT pMouseDriver;
 	MouseAddDevice MouseAddDevicePtr;
 	struct DEVOBJ_EXTENSION_FIX *DevObjExtension;
 	ULONGLONG node = 0;
 	SHORT *u;
-	wchar_t kbdname[23] = L"\\Device\\KeyboardClass0";
 	wchar_t mouname[22] = L"\\Device\\PointerClass0";
 
 	DbgPrintEx(0, 0, "Driver Loaded\n");
@@ -400,7 +424,6 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 
 	RtlInitUnicodeString(&dev, L"\\Device\\BarbellMouse");
 	IoCreateDevice(pDriverObject, 0, &dev, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pMouseObject);
-
 	pDriverObject->MajorFunction[IRP_MJ_CREATE] = CreateCall;
 	pDriverObject->MajorFunction[IRP_MJ_CLOSE] = CloseCall;
 	pDriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = IoControl;
@@ -416,27 +439,29 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 	RtlInitUnicodeString(&classNameBuffer, mouname);
 	u = mouname;
 
+	DbgPrintEx(0, 0, "Driver Finding Mouse...\n");
+
 	while (1)
 	{
 		//run till we run out of devices or find a devnode
-
-		if (IoGetDeviceObjectPointer(&classNameBuffer, FILE_ALL_ACCESS, &file, &classObj)) return STATUS_OBJECT_NAME_NOT_FOUND;
+		//FILE_READ_ATTRIBUTES
+		if (My_IoGetDeviceObjectPointer(&classNameBuffer, FILE_READ_ATTRIBUTES, &file, &pMouseTarget))
+			return STATUS_OBJECT_NAME_NOT_FOUND;
 		ObDereferenceObject(file);
-		node = FindDevNodeRecurse(classObj, &node);
+		node = FindDevNodeRecurse(pMouseTarget, &node);
 		if (node) break;
 		*(u + MOU_STRING_INC) += 1;
 		mouId++;
 		DbgPrintEx(0, 0, "Nope Mouse");
 	}
 
-	pMouseTarget = classObj;
-	classDrv = classObj->DriverObject;
-	MouClassReadRoutine = (MouclassRead)classDrv->MajorFunction[IRP_MJ_READ];
-	classDrv->MajorFunction[IRP_MJ_READ] = ReadMouse;
+	pMouseDriver = pMouseTarget->DriverObject;
+	MouClassReadRoutine = (MouclassRead)pMouseDriver->MajorFunction[IRP_MJ_READ];
+	pMouseDriver->MajorFunction[IRP_MJ_READ] = ReadMouse;
 	DevObjExtension = pMouseObject->DeviceObjectExtension;
 	DevObjExtension->DeviceNode = (void*)node;
-	MouseAddDevicePtr = (MouseAddDevice)classDrv->DriverExtension->AddDevice;
-	MouseAddDevicePtr(classDrv, pMouseObject); 
+	MouseAddDevicePtr = (MouseAddDevice)pMouseDriver->DriverExtension->AddDevice;
+	MouseAddDevicePtr(pMouseDriver, pMouseObject);
 	DbgPrintEx(0, 0, "Mouse Hooked");
 
 	return STATUS_SUCCESS;
