@@ -2,9 +2,7 @@
 #define _STEALTH_MOUSE_HOOK_H_INCLUDED_
 
 // Include Files
-#include <NTddk.h> 
 #include <Ntddmou.h>
-#include <Kbdmou.h>
 //#include "ioctl.h" 
 
 typedef NTSTATUS(__fastcall *mouinput)(void *a1, void *a2, void *a3, void *a4, void *a5);

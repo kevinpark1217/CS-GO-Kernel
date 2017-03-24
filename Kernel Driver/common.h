@@ -1,5 +1,7 @@
 #pragma once
 #include <NTddk.h> 
+#include <Kbdmou.h>
+#include <NTddk.h> 
 //#include <ntifs.h>
 
 typedef struct _DIRECTORY_BASIC_INFORMATION
@@ -49,5 +51,7 @@ ZwQueryDirectoryObject(
 );
 
 typedef NTSTATUS(*IRPMJREAD) (IN PDEVICE_OBJECT, IN PIRP);
+NTKERNELAPI PDEVICE_OBJECT IoGetBaseFileSystemDeviceObject(_In_ PFILE_OBJECT FileObject);
 
 void *FindDevNodeRecurse(PDEVICE_OBJECT a1, ULONGLONG *a2);
+NTSTATUS My_IoGetDeviceObjectPointer(IN PUNICODE_STRING ObjectName, IN ACCESS_MASK DesiredAccess, OUT PFILE_OBJECT *FileObject, OUT PDEVICE_OBJECT *DeviceObject);

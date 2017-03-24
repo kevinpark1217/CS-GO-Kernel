@@ -2,9 +2,7 @@
 #define _STEALTH_KEYBOARD_HOOK_H_
 
 // Include Files
-#include <NTddk.h> 
 #include <Ntddkbd.h>
-#include <Kbdmou.h>
 //#include "ioctl.h" 
 
 typedef NTSTATUS(__fastcall *kbdinput)(void *a1, void *a2, void *a3, void *a4, void *a5);

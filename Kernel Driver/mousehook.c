@@ -10,8 +10,7 @@
 #define ALLOC_SIZE				0x1000
 
 
-//#define MOUCLASS_CONNECT_REQUEST 0x0F0203
-#define MOUCLASS_CONNECT_REQUEST 5852
+#define MOUCLASS_CONNECT_REQUEST 0x0F0203
 
 MouseServiceDpc MouseDpcRoutine = NULL;
 mouinput MouseInputRoutine=NULL;
@@ -50,7 +49,7 @@ NTSTATUS Mouse_Create(IN PDRIVER_OBJECT driverObject)
 	memset((void*)MOU_DATA,0,sizeof(MOU_DATA));
 
 	RtlInitUnicodeString(&uniKbdDeviceName,L"\\Device\\BarbellMouse");
-	status = IoCreateDevice(driverObject,0,&uniKbdDeviceName,FILE_DEVICE_UNKNOWN,FILE_DEVICE_SECURE_OPEN,FALSE,&g_IOMouseDeviceObject);
+	status = IoCreateDevice(driverObject, 0, &uniKbdDeviceName, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &g_IOMouseDeviceObject);
 	if(!NT_SUCCESS(status)) {
 		return status;
 	}
@@ -80,7 +79,7 @@ NTSTATUS Mouse_Create(IN PDRIVER_OBJECT driverObject)
 			}
 		}
 	}
-	DbgPrintEx( DPFLTR_IHVDRIVER_ID,  DPFLTR_INFO_LEVEL,"Mouse_Create ----> status[%x].\n", status);
+	DbgPrintEx( 0,  0,"Mouse_Create ----> status[%x].\n", status);
 	mouse_inited = 1;
 
 	return status;
@@ -90,8 +89,10 @@ NTSTATUS Mouse_Close(IN PDRIVER_OBJECT driverObject)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 	
+	DbgPrintEx(0, 0, "Unload routine inited." + mouse_inited);
 	if( mouse_inited == 0 ) return status;
 
+	DbgPrintEx(0, 0, "Unload routine called.\n");
 	Mouse_UnHook(driverObject);
 
 	if(g_IOMouseDeviceObject) {
@@ -153,7 +154,7 @@ NTSTATUS Mouse_Hook(IN PDRIVER_OBJECT driverObject)
 		pDirBasicInfo =	(PDIRECTORY_BASIC_INFORMATION)pBuffer;
 		pDirBasicInfo->ObjectName.Length -= 2;
 
-		RtlInitUnicodeString(&uniMouseDrv, L"PointerClass0");
+		RtlInitUnicodeString(&uniMouseDrv, L"PointerClass");
 
 		if(RtlCompareUnicodeString(	&pDirBasicInfo->ObjectName, &uniMouseDrv,FALSE) == 0){
 			mouId = (ULONG)(*(char *)(pDirBasicInfo->ObjectName.Buffer+pDirBasicInfo->ObjectName.Length));
@@ -171,12 +172,12 @@ NTSTATUS Mouse_Hook(IN PDRIVER_OBJECT driverObject)
 	ZwClose(hDir);
 
 	if( found == 0 ) return status;
-	DbgPrintEx( DPFLTR_IHVDRIVER_ID,  DPFLTR_INFO_LEVEL,"Mouse_Hook ----> mouId[%d].\n", mouId);
-				
+	DbgPrintEx( 0,  0,"Mouse_Hook ----> mouId[%d].\n", mouId);
+
 	swprintf(tmpNameBuffer, L"\\Device\\%s", uniMouseDeviceName.Buffer);
 	RtlInitUnicodeString(&uniMouseDeviceName, tmpNameBuffer);
-
-	status = IoGetDeviceObjectPointer(&uniMouseDeviceName, FILE_ALL_ACCESS, &mouseFileObject,&MouseDeviceObject);
+	//FILE_READ_ATTRIBUTES
+	status = My_IoGetDeviceObjectPointer(&uniMouseDeviceName, FILE_READ_ATTRIBUTES, &mouseFileObject,&MouseDeviceObject);
 
 	if(NT_SUCCESS(status)) {
 		g_MouseDeviceObject = MouseDeviceObject;
@@ -186,7 +187,7 @@ NTSTATUS Mouse_Hook(IN PDRIVER_OBJECT driverObject)
 		g_OldInternalDeviceFunction = g_MouseDeviceObject->DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL];
 		g_MouseDeviceObject->DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = Mouse_IO_InternalIoctl;
 
-		DbgPrintEx( DPFLTR_IHVDRIVER_ID,  DPFLTR_INFO_LEVEL,"Mouse_Create ----> Mouse_HookProc success.\n");
+		DbgPrintEx( 0,  0,"Mouse_Create ----> Mouse_HookProc success.\n");
 	}
 	return status;
 }
@@ -277,7 +278,7 @@ NTSTATUS Mouse_HookProc( IN PDEVICE_OBJECT DeviceObject,	IN PIRP Irp	)
 
 	ULONGLONG *routine;
 
-//	DbgPrint("Mouse_HookProc: success");
+	//DbgPrintEx(0, 0, "Mouse_HookProc: success");
 
 	routine=(ULONGLONG*)Irp;
 
@@ -304,12 +305,13 @@ NTSTATUS Mouse_IO_InternalIoctl(PDEVICE_OBJECT device, PIRP irp)
 
 	ios=IoGetCurrentIrpStackLocation(irp);
 
-	if(ios->Parameters.DeviceIoControl.IoControlCode==MOUCLASS_CONNECT_REQUEST)
+	DbgPrintEx(0, 0, "Code: [%x]\n", ios->Parameters.DeviceIoControl.IoControlCode);
+	if (ios->Parameters.DeviceIoControl.IoControlCode == MOUCLASS_CONNECT_REQUEST)
 	{
 		cd=ios->Parameters.DeviceIoControl.Type3InputBuffer;
 
 		MouseDpcRoutine=(MouseServiceDpc)cd->ClassService;
-		DbgPrintEx( DPFLTR_IHVDRIVER_ID,  DPFLTR_INFO_LEVEL,"Mouse_IO_InternalIoctl ----> MouseDpcRoutine[%x]\n", MouseDpcRoutine);
+		DbgPrintEx( 0,  0,"Mouse_IO_InternalIoctl ----> MouseDpcRoutine[%x]\n", MouseDpcRoutine);
 	}
 
 	//status = g_OldInternalDeviceFunction(device, irp);
@@ -330,8 +332,6 @@ void SynthesizeMouse(PMOUSE_INPUT_DATA a1)
 	char *endptr;
 	ULONG fill=1;
 
-	DbgPrintEx(0, 0, a1->LastX + " " + a1->LastY);
-
 	endptr=(char*)a1;
 
 	endptr+=sizeof(MOUSE_INPUT_DATA);
@@ -343,4 +343,5 @@ void SynthesizeMouse(PMOUSE_INPUT_DATA a1)
 	if(MouseDpcRoutine) MouseDpcRoutine(g_MouseDeviceObject,a1,(PMOUSE_INPUT_DATA)endptr,&fill);
 
 	KeLowerIrql(irql);
+	DbgPrintEx(0, 0, "MouseDpcRoutine 0x[%x].\n", MouseDpcRoutine);
 }

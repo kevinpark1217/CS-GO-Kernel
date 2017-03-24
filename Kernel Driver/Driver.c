@@ -3,7 +3,7 @@
 #include <ntddk.h>
 #include "Memory.h"
 #include "mousehook.h"
-#include "keyboardhook.h"
+//#include "keyboardhook.h"
 
 // Request to read virtual user memory (memory of a program) from kernel space
 #define IO_READ_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5851 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
@@ -178,18 +178,19 @@ NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	{
 		PMOUSE_REQUEST ReadInput = (PMOUSE_REQUEST)Irp->AssociatedIrp.SystemBuffer;
 		mdata.Flags |= MOUSE_MOVE_RELATIVE;
+		mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_UP;
+		mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_DOWN;
 		if (ReadInput->click && ReadInput->status == 1)
 		{
-			mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_UP;
 			mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_DOWN;
 		}
 		else if (ReadInput->click && ReadInput->status == 0)
 		{
-			mdata.ButtonFlags &= ~MOUSE_LEFT_BUTTON_DOWN;
 			mdata.ButtonFlags |= MOUSE_LEFT_BUTTON_UP;
 		}
 		else
 		{
+			DbgPrintEx(0, 0, "dx: %ld dy: %ld", ReadInput->dx, ReadInput->dy);
 			mdata.LastX = ReadInput->dx;
 			mdata.LastY = ReadInput->dy;
 		}
@@ -218,6 +219,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 {
 	DbgPrintEx(0, 0, "Driver Loaded\n");
 
+
 	PsSetLoadImageNotifyRoutine(ImageLoadCallback);
 
 	RtlInitUnicodeString(&dev, L"\\Device\\Barbell");
@@ -226,6 +228,10 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 	IoCreateDevice(pDriverObject, 0, &dev, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &pDeviceObject);
 	IoCreateSymbolicLink(&dos, &dev);
 
+	memset((void*)&mdata, 0, sizeof(mdata));
+	Mouse_Create(pDriverObject);
+	//Keyboard_Create(input_keyboard);
+
 	pDriverObject->MajorFunction[IRP_MJ_CREATE] = CreateCall;
 	pDriverObject->MajorFunction[IRP_MJ_CLOSE] = CloseCall;
 	pDriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = IoControl;
@@ -233,10 +239,6 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath
 
 	pDeviceObject->Flags |= DO_DIRECT_IO;
 	pDeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
-
-	memset((void*)&mdata, 0, sizeof(mdata));
-	Mouse_Create(pDriverObject);
-	//Keyboard_Create(input_keyboard);
 
 	return STATUS_SUCCESS;
 }
@@ -249,11 +251,11 @@ NTSTATUS UnloadDriver(PDRIVER_OBJECT pDriverObject)
 
 	PsRemoveLoadImageNotifyRoutine(ImageLoadCallback);
 
-	IoDeleteSymbolicLink(&dos);
-	IoDeleteDevice(pDriverObject->DeviceObject);
-
 	Mouse_Close(pDriverObject);
 	//Keyboard_Close(input_keyboard);
+
+	IoDeleteSymbolicLink(&dos);
+	IoDeleteDevice(pDriverObject->DeviceObject);
 
 	return STATUS_SUCCESS;
 }

@@ -205,7 +205,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	V1.join();
 	V2.join();
 
-	ZeroMemory(hwnd, sizeof(hwnd));
+	ZeroMemory(&hwnd, sizeof(hwnd));
 
 	return 0;
 }

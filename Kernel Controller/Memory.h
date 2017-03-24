@@ -22,6 +22,7 @@
 // Send mouse data to kernel space for stream injection
 #define IO_MOUSE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 5856 /* Our Custom Code */, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
+
 typedef struct _MOUSE_REQUEST
 {
 	BOOLEAN click;
@@ -30,7 +31,6 @@ typedef struct _MOUSE_REQUEST
 	LONG dy;
 
 } MOUSE_REQUEST, *PMOUSE_REQUEST;
-
 
 typedef struct _KERNEL_READ_REQUEST
 {
@@ -151,18 +151,19 @@ public:
 
 	void MouseMove(float x, float y)
 	{
-		INPUT Input = { 0 };
+		/*INPUT Input = { 0 };
 		Input.type = INPUT_MOUSE;
 		Input.mi.dx = (LONG)(x * 10);
 		Input.mi.dy = (LONG)(y * 10);
 		Input.mi.dwFlags = MOUSEEVENTF_MOVE;
-		SendInput(1, &Input, sizeof(INPUT));
-		/*DWORD Bytes;
-		MOUSE_INPUT_DATA Input = { 0 };
-		Input.Flags = MOUSE_MOVE_ABSOLUTE;
-		Input.LastX = (LONG)(x * 10);
-		Input.LastY = (LONG)(y * 10);
-		DeviceIoControl(hDriver, IO_MOUSE_REQUEST, &Input, sizeof(Input), &Input, sizeof(Input), &Bytes, NULL);*/
+		SendInput(1, &Input, sizeof(INPUT));*/
+		DWORD Bytes;
+		MOUSE_REQUEST Input;
+		Input.click = false;
+		Input.dx = (LONG)(x * 10);
+		Input.dy = (LONG)(y * 10);
+		//std::cout << Input.dx << " " << Input.dy << std::endl;
+		DeviceIoControl(hDriver, IO_MOUSE_REQUEST, &Input, sizeof(Input), 0, 0, &Bytes, NULL);
 	}
 
 
