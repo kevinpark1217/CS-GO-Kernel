@@ -1,5 +1,7 @@
 
 from ctypes import windll, Structure, c_ulong, byref
+import time
+import matplotlib.pyplot as plt
 
 # Code to find the mouse position.
 class POINT(Structure):
@@ -11,10 +13,55 @@ def queryMousePosition():
     return (pt.x, pt.y)
 # --------------------------------
 
+class PIDLoop:
+    def __init__(self, p, i, d):
+        self.Kp = p     #Ki coefficient 
+        self.Ki = i     #Ki coefficient
+        self.Kd = d     #Kp coefficient
+
+        self.P = 0
+        self.I = 0
+        self.D = 0
+        
+        self.output = 0
+
+        self.prev_error = 0
+        self.last_error = 0
+
+        self.windup = 40
+    
+    def update(self, target, setpoint, dt):
+        err = setpoint - target
+        derr = err - self.prev_error
+        
+        self.P = self.Kp * err
+        self.I += self.Ki * (err * dt)
+        self.D = self.Kd * (derr / dt) if dt > 0 else 0
+
+        if self.I > self.windup:
+            self.I = self.windup
+        if self.I < -self.windup:
+            self.I = -self.windup
+
+        self.prev_error = err
+        self.output = self.P + self.I + self.D
+        return self.output
 
 
+pid = PIDLoop(1.2, 1, 0.001)
+curr = 800
+currs = [curr]
+target = 400
 
+for i in range(0, 50, 1):
+    out = pid.update(target, curr, .005)
+    print(str(out))
+    curr -= out
+    currs.append(curr)
 
+plt.plot([i * 0.005 for i in range(0, 51, 1)], [400 for i in range (0, 51, 1)])
+plt.plot([i * 0.005 for i in range(0, 51, 1)], currs)
+plt.show()
 
 
 
